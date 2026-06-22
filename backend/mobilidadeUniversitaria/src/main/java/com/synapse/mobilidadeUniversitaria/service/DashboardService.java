@@ -18,10 +18,13 @@ import com.synapse.mobilidadeUniversitaria.repositories.PresencaDigitalRepositor
 import com.synapse.mobilidadeUniversitaria.repositories.UsuarioRepository;
 import com.synapse.mobilidadeUniversitaria.repositories.ViagemRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.TextStyle;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -45,6 +48,7 @@ public class DashboardService {
         this.usuarioRepository = usuarioRepository;
     }
 
+    @Transactional(readOnly = true)
     public DashboardGestorResponseDTO dashboardGestor() {
         List<Viagem> viagensHoje = viagensHoje();
         long presencasHoje = presencasDasViagens(viagensHoje);
@@ -65,6 +69,7 @@ public class DashboardService {
         );
     }
 
+    @Transactional(readOnly = true)
     public DashboardKpiResponseDTO kpis() {
         LocalDate hoje = LocalDate.now();
         LocalDateTime inicioHoje = hoje.atStartOfDay();
@@ -94,6 +99,7 @@ public class DashboardService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
     public List<OcupacaoPorRotaResponseDTO> ocupacaoPorRota() {
         return viagemRepository.findAll()
                 .stream()
@@ -120,19 +126,34 @@ public class DashboardService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<DemandaPorDiaResponseDTO> demandaPorDia() {
-        Map<String, Long> presencasPorDia = presencaRepository.findAll()
+        Map<DayOfWeek, Long> presencasPorDia = presencaRepository.findAll()
                 .stream()
-                .filter(presenca -> presenca.getDataHoraValidacao() != null)
+                .filter(presenca -> presenca.getDataHoraReserva() != null || presenca.getDataHoraValidacao() != null)
                 .collect(Collectors.groupingBy(
-                        presenca -> presenca.getDataHoraValidacao().getDayOfWeek()
-                                .getDisplayName(TextStyle.FULL, Locale.forLanguageTag("pt-BR")),
+                        presenca -> {
+                            LocalDateTime origem = presenca.getDataHoraReserva() != null
+                                    ? presenca.getDataHoraReserva()
+                                    : presenca.getDataHoraValidacao();
+                            return origem.getDayOfWeek();
+                        },
                         Collectors.counting()
                 ));
 
-        return presencasPorDia.entrySet()
+        Map<DayOfWeek, String> ordemDias = new LinkedHashMap<>();
+        ordemDias.put(DayOfWeek.MONDAY, "segunda-feira");
+        ordemDias.put(DayOfWeek.TUESDAY, "terça-feira");
+        ordemDias.put(DayOfWeek.WEDNESDAY, "quarta-feira");
+        ordemDias.put(DayOfWeek.THURSDAY, "quinta-feira");
+        ordemDias.put(DayOfWeek.FRIDAY, "sexta-feira");
+        ordemDias.put(DayOfWeek.SATURDAY, "sábado");
+        ordemDias.put(DayOfWeek.SUNDAY, "domingo");
+
+        return ordemDias.entrySet()
                 .stream()
-                .map(entry -> new DemandaPorDiaResponseDTO(entry.getKey(), entry.getValue()))
+                .filter(entry -> presencasPorDia.containsKey(entry.getKey()))
+                .map(entry -> new DemandaPorDiaResponseDTO(entry.getValue(), presencasPorDia.get(entry.getKey())))
                 .toList();
     }
 
@@ -175,12 +196,14 @@ public class DashboardService {
         return calcularVariacaoPercentual((double) atual, (double) anterior);
     }
 
+    @Transactional(readOnly = true)
     public long contarViagensFinalizadasHoje() {
         return viagensHoje().stream()
                 .filter(v -> ViagemStatus.FINALIZADA.equals(v.getStatus()))
                 .count();
     }
 
+    @Transactional(readOnly = true)
     public AlunoFrequenciaResponseDTO calcularFrequenciaAluno(Long alunoId) {
         // Try to find as Aluno entity (proper JPA subtype)
         String nome;
@@ -221,6 +244,7 @@ public class DashboardService {
         );
     }
 
+    @Transactional(readOnly = true)
     public List<AlunoFrequenciaResponseDTO> calcularFrequenciaTodosAlunos() {
         // Get all users with ALUNO type directly
         List<Usuario> alunos = usuarioRepository.findByUserType(UserType.ALUNO);

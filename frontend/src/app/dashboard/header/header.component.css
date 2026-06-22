@@ -107,6 +107,7 @@
 
 .search-input {
   width: 320px;
+  padding-right: 34px;
   height: 38px;
   background-color: #18181b;
   border: 1px solid #27272a;
@@ -120,6 +121,24 @@
 }
 .search-input::placeholder { color: #64748b; }
 .search-input:focus { border-color: #2563eb; }
+.search-clear {
+  position: absolute;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.search-clear:hover { color: #f8fafc; background: #27272a; }
+.search-clear svg { width: 14px; height: 14px; }
 
 .icon-btn {
   position: relative;

@@ -52,13 +52,19 @@ export class AppAlunoReservaComponent implements OnInit, OnDestroy {
 
   hoje = new Date().toISOString().split('T')[0];
 
+  private handleTripUpdate = () => {
+    this.carregarDados();
+  };
+
   ngOnInit() {
     this.carregarDados();
-    this.refreshHandle = setInterval(() => this.carregarReservas(), 10000);
+    window.addEventListener('trip-data-updated', this.handleTripUpdate);
+    this.refreshHandle = setInterval(() => this.carregarDados(), 10000);
   }
 
   ngOnDestroy() {
     if (this.refreshHandle) clearInterval(this.refreshHandle);
+    window.removeEventListener('trip-data-updated', this.handleTripUpdate);
   }
 
   private getAlunoId(): number | null {
@@ -101,37 +107,43 @@ export class AppAlunoReservaComponent implements OnInit, OnDestroy {
 
   carregarRotas(): void {
     this.isLoading.set(true);
+    this.ocupacaoMap.set(new Map());
     this.http.get<any[]>(`${this.baseUrl}/viagens`).subscribe({
       next: (data) => {
         const viagensDisp = data.filter(v => v.status === 'AGENDADA');
-        const novaOcupacaoMap = new Map<number, { reservas: number; capacidade: number }>();
 
-        const rotasMap = new Map<number, any>();
-        viagensDisp.forEach(v => {
+        const viagens = viagensDisp.map(v => {
           const capacidade = v.veiculo?.capacidadeTotal || 45;
-          // Fetch real occupancy per trip
           this.http.get<any>(`${this.baseUrl}/viagens/${v.id}/occupancy`).subscribe({
             next: (occ) => {
-              novaOcupacaoMap.set(v.id, { reservas: Number(occ.reservas ?? 0), capacidade: Number(occ.capacidade ?? capacidade) });
-              this.ocupacaoMap.set(new Map(novaOcupacaoMap));
+              this.ocupacaoMap.update(current => {
+                const next = new Map(current);
+                next.set(v.id, { reservas: Number(occ.reservas ?? 0), capacidade: Number(occ.capacidadeTotal ?? occ.capacidade ?? capacidade) });
+                return next;
+              });
             },
             error: () => {
-              novaOcupacaoMap.set(v.id, { reservas: 0, capacidade });
-              this.ocupacaoMap.set(new Map(novaOcupacaoMap));
+              this.ocupacaoMap.update(current => {
+                const next = new Map(current);
+                next.set(v.id, { reservas: 0, capacidade });
+                return next;
+              });
             }
           });
 
-          if (v.rota && !rotasMap.has(v.rota.id)) {
-            rotasMap.set(v.rota.id, {
-              ...v.rota,
-              viagemId: v.id,
-              dataHoraPartida: v.dataHoraPartida,
-              capacidade,
-              status: v.status
-            });
-          }
+          return {
+            id: v.id,
+            nomeRota: v.rota?.nomeRota || 'Viagem #' + v.id,
+            pontoParada: v.rota?.pontoParada || '',
+            descricao: v.rota?.descricao || '',
+            viagemId: v.id,
+            dataHoraPartida: v.dataHoraPartida,
+            capacidade,
+            status: v.status,
+          };
         });
-        this.rotas.set(Array.from(rotasMap.values()));
+
+        this.rotas.set(viagens);
         this.isLoading.set(false);
       },
       error: () => { this.isLoading.set(false); }
@@ -149,7 +161,7 @@ export class AppAlunoReservaComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const rotaObj = this.rotas().find(r => r.id.toString() === this.rotaSelecionada);
+    const rotaObj = this.rotas().find(r => r.viagemId?.toString() === this.rotaSelecionada);
     if (!rotaObj?.viagemId) {
       this.mensagem.set('Viagem não encontrada para esta rota.');
       this.mensagemTipo.set('error');

@@ -2,6 +2,7 @@ package com.synapse.mobilidadeUniversitaria.controller;
 
 import com.synapse.mobilidadeUniversitaria.dtos.response.OcupacaoViagemResponseDTO;
 import com.synapse.mobilidadeUniversitaria.dtos.response.PresencaDigitalResponseDTO;
+import com.synapse.mobilidadeUniversitaria.dtos.response.QRCodePreviewResponseDTO;
 import com.synapse.mobilidadeUniversitaria.dtos.response.QRCodeResponseDTO;
 import com.synapse.mobilidadeUniversitaria.dtos.response.ViagemResponseDTO;
 import com.synapse.mobilidadeUniversitaria.security.AuthorizationService;
@@ -49,6 +50,13 @@ public class DriverAppController {
     @PreAuthorize("@authorizationService.isMotoristaDaViagem(#tripId)")
     public ResponseEntity<QRCodeResponseDTO> gerarQRCodeDaViagem(@PathVariable Long tripId) {
         return ResponseEntity.ok(viagemService.gerarQRCode(tripId));
+    }
+
+    @PostMapping("/qrcode/preview")
+    @PreAuthorize("hasRole('MOTORISTA')")
+    public ResponseEntity<QRCodePreviewResponseDTO> previsualizarPresencaPorQRCode(
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody com.synapse.mobilidadeUniversitaria.dtos.request.QRCodeScanRequestDTO dto) {
+        return ResponseEntity.ok(presencaService.previsualizarScanDoMotorista(dto.qrData()));
     }
 
     @PostMapping("/qrcode/scan")

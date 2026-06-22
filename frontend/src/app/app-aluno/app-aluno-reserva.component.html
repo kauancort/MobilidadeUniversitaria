@@ -41,7 +41,7 @@
     </div>
   </div>
 
-  <div class="section-label">Selecione a Rota</div>
+  <div class="section-label">Selecione a Viagem</div>
 
   @if (rotas().length === 0) {
     <div class="empty-state">
@@ -49,12 +49,12 @@
     </div>
   } @else {
     <div class="rotas-list">
-      @for (rota of rotas(); track rota.id) {
+      @for (rota of rotas(); track rota.viagemId) {
         <div
           class="rota-card"
-          [class.selected]="rotaSelecionada === rota.id.toString()"
+          [class.selected]="rotaSelecionada === rota.viagemId?.toString()"
           [class.lotado]="getOcupacao(rota) >= 100"
-          (click)="getOcupacao(rota) < 100 && selecionarRota(rota.id.toString())">
+          (click)="getOcupacao(rota) < 100 && selecionarRota(rota.viagemId!.toString())">
 
           <div class="rota-top">
             <div class="rota-info">

@@ -16,6 +16,10 @@ import { StudentUsageTableComponent } from '../student-usage-table/student-usage
 export class DashboardHomeComponent implements OnInit, OnDestroy {
   private dashboardService = inject(DashboardService);
   private refreshHandle?: ReturnType<typeof setInterval>;
+  private serviceRefreshSub?: any;
+  private handleTripUpdate = () => {
+    this.loadDashboardData();
+  };
 
   summary: DashboardSummary | null = null;
   studentUsage: StudentUsageRow[] = [];
@@ -30,6 +34,8 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadDashboardData();
+    window.addEventListener('trip-data-updated', this.handleTripUpdate);
+    this.serviceRefreshSub = this.dashboardService.refresh$.subscribe(() => this.loadDashboardData());
 
     this.refreshHandle = setInterval(() => {
       this.loadDashboardData();
@@ -40,6 +46,8 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
     if (this.refreshHandle) {
       clearInterval(this.refreshHandle);
     }
+    this.serviceRefreshSub?.unsubscribe();
+    window.removeEventListener('trip-data-updated', this.handleTripUpdate);
   }
 
   loadDashboardData() {
@@ -73,6 +81,22 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
             icon: 'wallet'
           }
         ];
+      },
+      error: () => {
+        this.summary = {
+          totalStudents: 0,
+          studentsGrowth: 0,
+          occupancyRate: 0,
+          occupancyGrowth: 0,
+          tripsToday: 0,
+          completedTripsToday: 0
+        };
+        this.stats = [
+          { title: 'Total de Alunos', value: '0', trend: '0%', trendDirection: 'neutral', icon: 'users' },
+          { title: 'Taxa de Ocupação', value: '0%', trend: '0%', trendDirection: 'neutral', icon: 'percentage' },
+          { title: 'Viagens Hoje', value: '0', info: '0 finalizadas', icon: 'bus' },
+          { title: 'Economia Estimada', value: 'R$ 0', icon: 'wallet' }
+        ];
       }
     });
 
@@ -83,19 +107,31 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
 
     this.dashboardService.getTrips().subscribe(data => this.trips = data);
 
-    this.dashboardService.getDailyDemand().subscribe((data: any[]) => {
-      this.dailyDemand = data.map(d => ({
-        day: d.dia ?? d.day ?? '',
-        students: d.totalPresencas ?? d.students ?? 0
-      }));
-      this.calculateSvgChart();
+    this.dashboardService.getDailyDemand().subscribe({
+      next: (data: any[]) => {
+        this.dailyDemand = data.map(d => ({
+          day: d.dia ?? d.day ?? '',
+          students: d.totalPresencas ?? d.students ?? 0
+        }));
+        this.calculateSvgChart();
+      },
+      error: () => {
+        this.dailyDemand = [];
+        this.svgPoints = [];
+        this.svgPath = '';
+      }
     });
 
-    this.dashboardService.getRouteOccupancy().subscribe((data: any[]) => {
-      this.routeOccupancy = data.map(r => ({
-        route: r.nomeRota ?? r.route ?? '',
-        occupancy: r.ocupacaoPercent ?? r.occupancy ?? 0
-      }));
+    this.dashboardService.getRouteOccupancy().subscribe({
+      next: (data: any[]) => {
+        this.routeOccupancy = data.map(r => ({
+          route: r.nomeRota ?? r.route ?? '',
+          occupancy: r.ocupacaoPercent ?? r.occupancy ?? 0
+        }));
+      },
+      error: () => {
+        this.routeOccupancy = [];
+      }
     });
   }
 
@@ -111,6 +147,7 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
 
     const chartWidth = width - paddingLeft - paddingRight;
     const chartHeight = height - paddingTop - paddingBottom;
+    this.maxDemand = Math.max(...this.dailyDemand.map(item => item.students), 1);
 
     this.svgPoints = this.dailyDemand.map((item, index) => {
       const x = paddingLeft + (index / Math.max(this.dailyDemand.length - 1, 1)) * chartWidth;

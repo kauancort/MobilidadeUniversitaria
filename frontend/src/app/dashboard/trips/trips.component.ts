@@ -1,7 +1,8 @@
-import { Component, OnInit, inject, signal, ChangeDetectorRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectorRef, OnDestroy, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DashboardService } from '../services/dashboard.service';
+import { DashboardSearchService } from '../services/dashboard-search.service';
 import { Trip } from '../models/dashboard.model';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -16,10 +17,13 @@ import { Subscription } from 'rxjs';
 export class TripsComponent implements OnInit, OnDestroy {
   private svc = inject(DashboardService);
   private cdr = inject(ChangeDetectorRef);
+  private searchService = inject(DashboardSearchService);
   private router = inject(Router);
   private routerSub?: Subscription;
 
   trips: Trip[] = [];
+  filteredTrips: Trip[] = [];
+  search = '';
   scheduledToday = 0;
   totalPassengers = 0;
   completed = 0;
@@ -33,6 +37,10 @@ export class TripsComponent implements OnInit, OnDestroy {
   showDeleteModal = signal(false);
   showViewModal = signal(false);
   selectedTrip = signal<Trip | null>(null);
+
+  private readonly searchSync = effect(() => {
+    this.applyFilters(this.searchService.query());
+  });
 
   formData = {
     rotaId: '' as string | number,
@@ -74,7 +82,8 @@ export class TripsComponent implements OnInit, OnDestroy {
         this.trips = data;
         this.scheduledToday = data.filter(t => t.status === 'agendada').length;
         this.totalPassengers = data.reduce((acc, t) => acc + t.studentsCount, 0);
-        this.completed = data.filter(t => t.status === 'completed').length;
+        this.completed = data.filter(t => ['completed', 'concluida', 'finalizada'].includes(String(t.status))).length;
+        this.applyFilters();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -124,6 +133,8 @@ export class TripsComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.closeCreateModal();
         this.loadTrips();
+        this.svc.triggerRefresh();
+        window.dispatchEvent(new CustomEvent('trip-data-updated'));
       },
       error: (err) => {
         alert('Erro ao criar viagem: ' + (err.error?.message || err.message || 'Verifique os campos e tente novamente'));
@@ -162,6 +173,8 @@ export class TripsComponent implements OnInit, OnDestroy {
       next: (response: any) => {
         this.closeEditModal();
         this.loadTrips();
+        this.svc.triggerRefresh();
+        window.dispatchEvent(new CustomEvent('trip-data-updated'));
       },
       error: (err: any) => {
         alert('Erro ao atualizar viagem: ' + (err.error?.message || err.message || 'Verifique os campos e tente novamente'));
@@ -187,6 +200,8 @@ export class TripsComponent implements OnInit, OnDestroy {
           next: (response) => {
             this.closeDeleteModal();
             this.loadTrips();
+            this.svc.triggerRefresh();
+            window.dispatchEvent(new CustomEvent('trip-data-updated'));
           },
           error: (err) => {
             console.error('Erro ao excluir viagem:', err);
@@ -195,6 +210,23 @@ export class TripsComponent implements OnInit, OnDestroy {
         });
       }
     }
+  }
+
+  applyFilters(globalSearch = '') {
+    const query = `${this.search} ${globalSearch}`.trim().toLowerCase();
+    if (!query) {
+      this.filteredTrips = this.trips;
+      return;
+    }
+
+    this.filteredTrips = this.trips.filter(trip =>
+      trip.route.toLowerCase().includes(query) ||
+      trip.driver.toLowerCase().includes(query) ||
+      trip.vehicle.toLowerCase().includes(query) ||
+      trip.status.toLowerCase().includes(query) ||
+      trip.date.toLowerCase().includes(query) ||
+      trip.time.toLowerCase().includes(query)
+    );
   }
 
   getStatusLabel(status: Trip['status']): string {

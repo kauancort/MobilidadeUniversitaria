@@ -83,6 +83,45 @@
 
 .modal-body { min-height: 200px; }
 
+.student-summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s ease;
+}
+
+.summary-chip:hover {
+  border-color: rgba(59,130,246,.32);
+  color: #fff;
+}
+
+.summary-chip.active {
+  background: rgba(59,130,246,.15);
+  border-color: rgba(59,130,246,.35);
+  color: #dbeafe;
+}
+
+.summary-chip strong {
+  font-size: 13px;
+  color: inherit;
+}
+
+
 .students-list {
   display: flex; flex-direction: column; gap: 12px;
 }
@@ -209,17 +248,20 @@
 .paradas-controls { display: flex; gap: 8px; }
 
 .btn-parada {
-  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
-  padding: 10px; border: none; border-radius: 8px;
-  font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s;
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 14px; border: 1px solid rgba(139,92,246,.28); border-radius: 12px;
+  font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s ease;
 }
 .btn-mark-stop {
-  background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #fff;
+  background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(124,58,237,.28);
 }
 .btn-mark-stop:hover:not(:disabled) {
-  transform: translateY(-2px); box-shadow: 0 4px 12px rgba(139,92,246,.4);
+  transform: translateY(-1px); box-shadow: 0 16px 28px rgba(124,58,237,.38); filter: brightness(1.04);
 }
-.btn-mark-stop:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-mark-stop:active:not(:disabled) { transform: translateY(0); }
+.btn-mark-stop:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
 
 .btn-action {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;

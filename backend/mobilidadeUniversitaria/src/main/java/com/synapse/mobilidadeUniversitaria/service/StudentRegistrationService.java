@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -30,34 +31,37 @@ public class StudentRegistrationService {
     private final SolicitacaoCadastroAlunoRepository solicitacaoRepository;
 
     public void createStudentRequest(StudentRegistrationRequestDTO dto) {
+        String emailNormalizado = normalizarEmail(dto.email());
+        String cpfNormalizado = normalizarCpf(dto.cpf());
+
         // Verificar duplicidade de email e CPF no banco de usuários ativos
-        if (usuarioRepository.existsByEmail(dto.email())) {
-            throw new ResourceAlreadyExistsException("Email ja cadastrado: " + dto.email());
+        if (usuarioRepository.existsByEmail(emailNormalizado)) {
+            throw new ResourceAlreadyExistsException("Email ja cadastrado: " + emailNormalizado);
         }
-        if (usuarioRepository.existsByCpf(dto.cpf())) {
-            throw new ResourceAlreadyExistsException("CPF ja cadastrado: " + dto.cpf());
+        if (usuarioRepository.existsByCpf(cpfNormalizado)) {
+            throw new ResourceAlreadyExistsException("CPF ja cadastrado: " + cpfNormalizado);
         }
         // Verificar solicitação já pendente no banco
-        if (solicitacaoRepository.findByEmail(dto.email()).isPresent()) {
+        if (solicitacaoRepository.findByEmail(emailNormalizado).isPresent()) {
             throw new ResourceAlreadyExistsException("Ja existe uma solicitacao pendente para este email");
         }
-        if (solicitacaoRepository.findByCpf(dto.cpf()).isPresent()) {
+        if (solicitacaoRepository.findByCpf(cpfNormalizado).isPresent()) {
             throw new ResourceAlreadyExistsException("Ja existe uma solicitacao pendente para este CPF");
         }
 
         SolicitacaoCadastroAluno solicitacao = new SolicitacaoCadastroAluno();
-        solicitacao.setNome(dto.nome());
-        solicitacao.setEmail(dto.email());
-        solicitacao.setCpf(dto.cpf());
+        solicitacao.setNome(dto.nome().trim());
+        solicitacao.setEmail(emailNormalizado);
+        solicitacao.setCpf(cpfNormalizado);
         solicitacao.setSenha(dto.senha());
-        solicitacao.setTelefone(dto.telefone());
-        solicitacao.setNomeFaculdade(dto.nomeFaculdade());
-        solicitacao.setCep(dto.cep());
-        solicitacao.setRua(dto.rua());
-        solicitacao.setBairro(dto.bairro());
-        solicitacao.setNumero(dto.numero());
-        solicitacao.setComplemento(dto.complemento());
-        solicitacao.setTipoLocal(dto.tipoLocal());
+        solicitacao.setTelefone(dto.telefone() != null ? dto.telefone().trim() : null);
+        solicitacao.setNomeFaculdade(dto.nomeFaculdade().trim());
+        solicitacao.setCep(dto.cep() != null ? dto.cep().replaceAll("\\D", "") : null);
+        solicitacao.setRua(dto.rua() != null ? dto.rua().trim() : null);
+        solicitacao.setBairro(dto.bairro() != null ? dto.bairro().trim() : null);
+        solicitacao.setNumero(dto.numero() != null ? dto.numero().trim() : null);
+        solicitacao.setComplemento(dto.complemento() != null ? dto.complemento().trim() : null);
+        solicitacao.setTipoLocal(dto.tipoLocal() != null ? dto.tipoLocal().trim() : null);
         solicitacao.setStatus("PENDENTE");
 
         solicitacaoRepository.save(solicitacao);
@@ -164,5 +168,13 @@ public class StudentRegistrationService {
         SolicitacaoCadastroAluno solicitacao = solicitacaoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Solicitacao nao encontrada: " + id));
         solicitacaoRepository.delete(solicitacao);
+    }
+
+    private String normalizarEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizarCpf(String cpf) {
+        return cpf == null ? null : cpf.replaceAll("\\D", "");
     }
 }

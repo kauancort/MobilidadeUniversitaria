@@ -154,18 +154,29 @@
           </button>
         </div>
         <div class="modal-body">
+          <div class="student-summary">
+            <button class="summary-chip" [class.active]="filtroPresencas === 'todas'" (click)="filtroPresencas = 'todas'">
+              Todas <strong>{{ getResumoPresencas().total }}</strong>
+            </button>
+            <button class="summary-chip" [class.active]="filtroPresencas === 'reservadas'" (click)="filtroPresencas = 'reservadas'">
+              Reservadas <strong>{{ getResumoPresencas().reservadas }}</strong>
+            </button>
+            <button class="summary-chip" [class.active]="filtroPresencas === 'confirmadas'" (click)="filtroPresencas = 'confirmadas'">
+              Confirmadas <strong>{{ getResumoPresencas().confirmadas }}</strong>
+            </button>
+          </div>
           @if (isLoadingPresencas()) {
             <div class="loading">
               <div class="spinner"></div>
               <p>Carregando alunos...</p>
             </div>
-          } @else if (presencas().length === 0) {
+          } @else if (getPresencasFiltradas().length === 0) {
             <div class="empty-state">
-              <p>Nenhum aluno reservado para esta viagem.</p>
+              <p>Nenhum aluno encontrado para este filtro.</p>
             </div>
           } @else {
             <div class="students-list">
-              @for (presenca of presencas(); track presenca.id) {
+              @for (presenca of getPresencasFiltradas(); track presenca.id) {
                 <div class="student-card" [class.confirmed]="presenca.confirmada">
                   <div class="student-info">
                     <div class="student-avatar">
@@ -174,7 +185,7 @@
                     <div class="student-details">
                       <h4 class="student-name">{{ presenca.alunoNome }}</h4>
                       <span class="student-status" [class]="'status-' + presenca.status.toLowerCase()">
-                        {{ presenca.status }}
+                        {{ presenca.status === 'CONFIRMADA' ? 'CONFIRMADO' : 'RESERVADO' }}
                       </span>
                     </div>
                   </div>

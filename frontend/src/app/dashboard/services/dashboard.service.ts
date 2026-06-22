@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, forkJoin, of } from 'rxjs';
+import { Observable, Subject, forkJoin, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
 import { User, Route, Vehicle, Trip, Document, DailyDemand, RouteOccupancy, RouteStop, DashboardSummary, StudentUsageRow } from '../models/dashboard.model';
@@ -11,6 +11,12 @@ import { User, Route, Vehicle, Trip, Document, DailyDemand, RouteOccupancy, Rout
 export class DashboardService {
   private api = inject(ApiService);
   private http = inject(HttpClient);
+  private refreshSubject = new Subject<void>();
+  public refresh$ = this.refreshSubject.asObservable();
+
+  public triggerRefresh(): void {
+    this.refreshSubject.next();
+  }
 
   public getStats(): Observable<DashboardSummary> {
     return this.getSummary();
@@ -358,20 +364,37 @@ export class DashboardService {
 
   // Dashboard analytics
   public getDailyDemand(): Observable<DailyDemand[]> {
+    const dayOrder = new Map([
+      ['segunda-feira', 1],
+      ['terca-feira', 2],
+      ['terça-feira', 2],
+      ['quarta-feira', 3],
+      ['quinta-feira', 4],
+      ['sexta-feira', 5],
+      ['sábado', 6],
+      ['sabado', 6],
+      ['domingo', 7]
+    ]);
+
     return this.api.get('/dashboard/demanda-por-dia').pipe(
-      map((data) => (data as any[]).map(d => ({
-        day: d.dia || d.day,
-        students: Number(d.total || d.students || 0)
-      })))
+      map((data) => (data as any[])
+        .map(d => ({
+          day: String(d.dia ?? d.day ?? '').trim(),
+          students: Number(d.totalPresencas ?? d.total ?? d.students ?? 0)
+        }))
+        .sort((a, b) => (dayOrder.get(a.day.toLowerCase()) ?? 99) - (dayOrder.get(b.day.toLowerCase()) ?? 99))
+      ),
+      catchError(() => of([]))
     );
   }
 
   public getRouteOccupancy(): Observable<RouteOccupancy[]> {
     return this.api.get('/dashboard/ocupacao-por-rota').pipe(
       map((data) => (data as any[]).map(r => ({
-        route: r.nomeRota || r.route,
-        occupancy: Number(r.ocupacao || r.occupancy || 0)
-      })))
+        route: String(r.nomeRota ?? r.route ?? ''),
+        occupancy: Number(r.ocupacaoPercent ?? r.ocupacao ?? r.occupancy ?? 0)
+      }))),
+      catchError(() => of([]))
     );
   }
 

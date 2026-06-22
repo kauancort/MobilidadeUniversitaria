@@ -15,7 +15,8 @@ export class AuthGuard implements CanActivate, CanActivateChild {
   ): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
     const user = this.authService.user();
 
-    if (!user) {
+    if (!user || !this.authService.hasValidSession()) {
+      this.authService.logout();
       return this.router.createUrlTree(['/login']);
     }
 

@@ -107,15 +107,21 @@ export class RegisterComponent {
 
     this.isLoading.set(true);
 
+    const email = this.formData.email.trim().toLowerCase();
+    const cpf = this.formData.cpf.replace(/\D/g, '');
+    const telefone = this.formData.telefone.trim();
+    const nome = this.formData.nome.trim();
+    const nomeFaculdade = this.formData.nomeFaculdade.trim();
+
     // Enviar solicitação de cadastro de aluno (não cria usuário diretamente)
     this.http.post<any>(`${this.baseUrl}/auth/register/student-request`, {
-      nome: this.formData.nome,
-      email: this.formData.email,
-      cpf: this.formData.cpf,
+      nome,
+      email,
+      cpf,
       senha: this.formData.senha,
-      telefone: this.formData.telefone,
+      telefone,
       tipoUsuario: 'ALUNO',
-      nomeFaculdade: this.formData.nomeFaculdade,
+      nomeFaculdade,
       cep: this.formData.endereco.cep,
       rua: this.formData.endereco.rua,
       bairro: this.formData.endereco.bairro,
@@ -133,15 +139,15 @@ export class RegisterComponent {
       error: (err: any) => {
         this.isLoading.set(false);
         const status = err.status;
-        const msg = err.error?.message || '';
+        const msg = String(err.error?.message || err.message || '');
 
-        // HTTP 201/200 nunca chegam aqui — apenas erros reais
-        if (status === 409 || msg.includes('Email ja cadastrado')) {
+        if (msg.includes('Email ja cadastrado') || msg.includes('email já cadastrado')) {
           this.errorMessage.set('Este email já está cadastrado.');
-        } else if (status === 409 || msg.includes('CPF ja cadastrado')) {
+        } else if (msg.includes('CPF ja cadastrado') || msg.includes('cpf já cadastrado')) {
           this.errorMessage.set('Este CPF já está cadastrado.');
+        } else if (msg.includes('solicitacao pendente') || msg.includes('solicitação pendente')) {
+          this.errorMessage.set('Já existe uma solicitação pendente com esses dados.');
         } else if (status === 400) {
-          // Erros de validação do bean
           const validationErrors = err.error?.validationErrors;
           if (validationErrors) {
             const firstError = Object.values(validationErrors)[0] as string;
@@ -149,6 +155,8 @@ export class RegisterComponent {
           } else {
             this.errorMessage.set(msg || 'Dados inválidos. Verifique os campos e tente novamente.');
           }
+        } else if (status === 409) {
+          this.errorMessage.set(msg || 'Já existe um cadastro com esses dados.');
         } else {
           this.errorMessage.set('Erro ao enviar solicitação. Tente novamente.');
         }

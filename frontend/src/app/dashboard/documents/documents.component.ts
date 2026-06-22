@@ -1,7 +1,8 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DashboardService } from '../services/dashboard.service';
+import { DashboardSearchService } from '../services/dashboard-search.service';
 import { Document } from '../models/dashboard.model';
 
 @Component({
@@ -13,6 +14,7 @@ import { Document } from '../models/dashboard.model';
 })
 export class DocumentsComponent implements OnInit {
   private svc = inject(DashboardService);
+  private searchService = inject(DashboardSearchService);
 
   documents: Document[] = [];
   filtered: Document[] = [];
@@ -30,6 +32,10 @@ export class DocumentsComponent implements OnInit {
   uploadError = signal('');
   searchQuery = signal('');
 
+  private readonly searchSync = effect(() => {
+    this.applyFilters(this.searchService.query());
+  });
+
   ngOnInit() {
     this.loadDocuments();
   }
@@ -37,7 +43,7 @@ export class DocumentsComponent implements OnInit {
   loadDocuments() {
     this.svc.getDocuments().subscribe(data => {
       this.documents = data;
-      this.filtered = data;
+      this.applyFilters(this.searchService.query());
       this.total = data.length;
       this.contracts = data.filter(d => d.type === 'Contrato').length;
       this.licenses = data.filter(d => d.type === 'Licença').length;
@@ -48,7 +54,13 @@ export class DocumentsComponent implements OnInit {
   onSearch(event: Event) {
     const query = (event.target as HTMLInputElement).value.toLowerCase();
     this.searchQuery.set(query);
+    this.applyFilters();
+  }
+
+  private applyFilters(globalSearch = '') {
+    const query = `${this.searchQuery()} ${globalSearch}`.trim().toLowerCase();
     this.filtered = this.documents.filter(d =>
+      !query ||
       d.name.toLowerCase().includes(query) ||
       d.type.toLowerCase().includes(query)
     );
