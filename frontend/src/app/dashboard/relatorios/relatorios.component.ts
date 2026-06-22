@@ -61,8 +61,8 @@ export class RelatoriosComponent implements OnInit {
 
   loadReportData(): void {
     this.isLoading.set(true);
-    const startStr = this.startDate() ? new Date(this.startDate()).toISOString() : undefined;
-    const endStr = this.endDate() ? new Date(this.endDate()).toISOString() : undefined;
+    const startStr = this.startDate() ? this.toLocalDateTimeStart(this.startDate()) : undefined;
+    const endStr = this.endDate() ? this.toLocalDateTimeEnd(this.endDate()) : undefined;
 
     // Load Metrics
     this.reportService.getMetrics(startStr, endStr).subscribe({
@@ -73,7 +73,8 @@ export class RelatoriosComponent implements OnInit {
     // Load Trips & Occupancy
     this.reportService.getTripsAndOccupancy().subscribe({
       next: (data) => {
-        this.tripsOccupancyRaw.set(data);
+        const sorted = [...data].sort((a, b) => this.parseMonthLabel(a.mes) - this.parseMonthLabel(b.mes));
+        this.tripsOccupancyRaw.set(sorted);
         this.calculateLineChart();
       },
       error: (err) => console.error('Erro ao carregar viagens e ocupação:', err)
@@ -139,10 +140,61 @@ export class RelatoriosComponent implements OnInit {
     return data.filter(r => r.rotaId.toString() === routeId);
   }
 
+  private toLocalDateTimeStart(date: string): string {
+    return `${date}T00:00:00`;
+  }
+
+  private toLocalDateTimeEnd(date: string): string {
+    return `${date}T23:59:59.999`;
+  }
+
+  private parseMonthLabel(label: string): number {
+    const normalized = label.toLowerCase().replaceAll('.', '').trim();
+    const monthMap: Record<string, number> = {
+      jan: 1,
+      janeiro: 1,
+      fev: 2,
+      fevereiro: 2,
+      mar: 3,
+      março: 3,
+      marco: 3,
+      abr: 4,
+      abril: 4,
+      mai: 5,
+      maio: 5,
+      jun: 6,
+      junho: 6,
+      jul: 7,
+      julho: 7,
+      ago: 8,
+      agosto: 8,
+      set: 9,
+      setembro: 9,
+      out: 10,
+      outubro: 10,
+      nov: 11,
+      novembro: 11,
+      dez: 12,
+      dezembro: 12,
+    };
+
+    const [monthPart, yearPart] = normalized.split('/');
+    const monthNumber = monthMap[monthPart] ?? 0;
+    const yearNumber = Number(yearPart ?? 0);
+    return yearNumber * 100 + monthNumber;
+  }
+
   // SVG Line Chart Calculation
   calculateLineChart(): void {
     const data = this.tripsOccupancyRaw();
-    if (data.length === 0) return;
+    if (data.length === 0) {
+      this.lineChartPoints.set([]);
+      this.lineChartPathTrips.set('');
+      this.lineChartPathOccupancy.set('');
+      this.lineChartFillTrips.set('');
+      this.lineChartFillOccupancy.set('');
+      return;
+    }
 
     const width = 600;
     const height = 200;

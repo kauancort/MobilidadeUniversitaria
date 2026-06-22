@@ -41,7 +41,7 @@
     </div>
   </div>
 
-  <p class="scanner-hint">Aponte a câmera ou digite o código exato exibido no QR do aluno</p>
+  <p class="scanner-hint">Aponte a câmera ou digite o código do aluno para validar antes de confirmar</p>
 
   <button class="btn-simulate" (click)="simularScan()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
@@ -63,11 +63,11 @@
           <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
           <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
         </svg>
-        Código QR do Aluno
+        Código do Aluno
       </label>
       <textarea
         [(ngModel)]="qrInput"
-        placeholder="Cole ou digite o código QR aqui... Ex: GOCAMPUS-5-1718808000000"
+        placeholder="Digite o código do aluno... Ex: GOCAMPUS-5-1718808000000"
         rows="2"
         class="qr-textarea"
         (keydown.enter)="$event.preventDefault(); validarQR()">
@@ -83,7 +83,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
-          Confirmar
+          Validar código
         }
       </button>
 
@@ -95,9 +95,35 @@
         </button>
       }
     </div>
+
+    @if (preview()) {
+      <div class="preview-card">
+        <div class="preview-top">
+          <span class="preview-label">Aluno encontrado</span>
+          <span class="preview-status" [class.confirmed]="preview()!.presenca?.status === 'CONFIRMADA'">
+            {{ preview()!.presenca?.status === 'CONFIRMADA' ? 'Confirmada' : 'Reservada' }}
+          </span>
+        </div>
+
+        <div class="preview-name">{{ preview()!.alunoNome }}</div>
+        <div class="preview-meta">
+          <span>ID {{ preview()!.alunoId }}</span>
+          <span>Viagem {{ preview()!.viagemId }}</span>
+        </div>
+        <p class="preview-message">{{ preview()!.mensagem }}</p>
+
+        <button class="btn-confirm-presence" (click)="confirmarPresenca()" [disabled]="isConfirming() || preview()!.presenca?.status === 'CONFIRMADA'">
+          @if (isConfirming()) {
+            <div class="spinner-sm"></div>
+            Confirmando...
+          } @else {
+            Confirmar presença
+          }
+        </button>
+      </div>
+    }
   </div>
 
-  <!-- Histórico da sessão -->
   @if (historico().length > 0) {
     <div class="card">
       <div class="card-header">

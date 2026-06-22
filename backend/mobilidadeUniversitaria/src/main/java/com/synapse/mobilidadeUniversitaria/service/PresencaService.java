@@ -8,6 +8,7 @@ import com.synapse.mobilidadeUniversitaria.Entities.PresencaDigital;
 import com.synapse.mobilidadeUniversitaria.Entities.Viagem;
 import com.synapse.mobilidadeUniversitaria.dtos.request.PresencaRequestDTO;
 import com.synapse.mobilidadeUniversitaria.dtos.response.QRCodeConfirmacaoResponseDTO;
+import com.synapse.mobilidadeUniversitaria.dtos.response.QRCodePreviewResponseDTO;
 import com.synapse.mobilidadeUniversitaria.dtos.response.OcupacaoViagemResponseDTO;
 import com.synapse.mobilidadeUniversitaria.dtos.response.PresencaDigitalResponseDTO;
 import com.synapse.mobilidadeUniversitaria.exceptions.BadRequestException;
@@ -18,6 +19,7 @@ import com.synapse.mobilidadeUniversitaria.repositories.PresencaDigitalRepositor
 import com.synapse.mobilidadeUniversitaria.repositories.ViagemRepository;
 import com.synapse.mobilidadeUniversitaria.security.AuthorizationService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -43,10 +45,12 @@ public class PresencaService {
         this.authorizationService = authorizationService;
     }
 
+    @Transactional
     public PresencaDigitalResponseDTO registrar(PresencaRequestDTO dto) {
         return registrar(dto.alunoId(), dto.viagemId());
     }
 
+    @Transactional
     public PresencaDigitalResponseDTO reservarParaAlunoLogado(Long viagemId) {
         return registrar(authorizationService.currentUser().getId(), viagemId);
     }
@@ -70,64 +74,59 @@ public class PresencaService {
         return toResponse(presencaRepository.save(presenca));
     }
 
+    @Transactional
     public QRCodeConfirmacaoResponseDTO confirmarPorQRCode(QRCodeConfirmacaoRequestDTO dto) {
         return confirmarPorQRCode(dto.alunoId(), dto.qrData());
     }
 
+    @Transactional
     public QRCodeConfirmacaoResponseDTO confirmarPorQRCodeDoAlunoLogado(String qrData) {
         Long alunoId = authorizationService.currentUser().getId();
         return confirmarPorQRCode(alunoId, qrData);
     }
 
+    @Transactional(readOnly = true)
+    public QRCodePreviewResponseDTO previsualizarScanDoMotorista(String qrData) {
+        Long alunoId = extrairAlunoIdDoQrData(qrData);
+        Viagem viagem = buscarViagemAtivaDoMotorista();
+        ReservaContexto contexto = buscarContextoReserva(alunoId, viagem);
+
+        String mensagem = contexto.presenca.getStatus().name().equals("CONFIRMADA")
+                ? "Presença já confirmada para este aluno"
+                : "Aluno encontrado. Confira o nome e confirme a presença.";
+
+        return new QRCodePreviewResponseDTO(
+                true,
+                contexto.aluno.getId(),
+                contexto.aluno.getNome(),
+                viagem.getId(),
+                mensagem,
+                toResponse(contexto.presenca)
+        );
+    }
+
+    @Transactional
     public QRCodeConfirmacaoResponseDTO confirmarScanDoMotorista(String qrData) {
-        Long alunoId = null;
-        if (qrData != null && qrData.matches("\\d+")) {
-            alunoId = Long.parseLong(qrData);
-        } else if (qrData != null && qrData.startsWith("GOCAMPUS-")) {
-            String[] parts = qrData.split("-");
-            if (parts.length >= 2) {
-                try {
-                    alunoId = Long.parseLong(parts[1]);
-                } catch (NumberFormatException e) {
-                    throw new BadRequestException("ID do aluno invalido no QR Code");
-                }
-            }
-        }
+        Long alunoId = extrairAlunoIdDoQrData(qrData);
+        Viagem viagem = buscarViagemAtivaDoMotorista();
+        ReservaContexto contexto = buscarContextoReserva(alunoId, viagem);
 
-        if (alunoId == null) {
-            throw new BadRequestException("Formatacao de QR Code invalida");
-        }
-
-        Long motoristaId = authorizationService.currentUser().getId();
-        Viagem viagem = viagemRepository.findByMotoristaId(motoristaId)
-                .stream()
-                .filter(v -> ViagemStatus.EM_ANDAMENTO.equals(v.getStatus()) || ViagemStatus.AGENDADA.equals(v.getStatus()))
-                .findFirst()
-                .orElseThrow(() -> new BadRequestException("Nenhuma viagem ativa ou agendada encontrada para o motorista"));
-
-        final Long finalAlunoId = alunoId;
-        Aluno aluno = alunoRepository.findById(finalAlunoId)
-                .orElseThrow(() -> new ResourceNotFoundException("Aluno nao encontrado com id: " + finalAlunoId));
-
-        PresencaDigital presenca = presencaRepository.findByAlunoIdAndViagemId(finalAlunoId, viagem.getId())
-                .orElseThrow(() -> new BadRequestException("Aluno nao possui reserva de presenca para a viagem " + viagem.getId()));
-
-        if (PresencaStatus.CANCELADA.equals(presenca.getStatus())) {
+        if (PresencaStatus.CANCELADA.equals(contexto.presenca.getStatus())) {
             throw new BadRequestException("Reserva de presenca cancelada");
         }
 
-        if (PresencaStatus.CONFIRMADA.equals(presenca.getStatus())) {
+        if (PresencaStatus.CONFIRMADA.equals(contexto.presenca.getStatus())) {
             throw new ResourceAlreadyExistsException("Presenca ja confirmada nesta viagem");
         }
 
-        presenca.setStatus(PresencaStatus.CONFIRMADA);
-        presenca.setDataHoraValidacao(LocalDateTime.now());
-        PresencaDigital confirmada = presencaRepository.save(presenca);
+        contexto.presenca.setStatus(PresencaStatus.CONFIRMADA);
+        contexto.presenca.setDataHoraValidacao(LocalDateTime.now());
+        PresencaDigital confirmada = presencaRepository.save(contexto.presenca);
 
         return new QRCodeConfirmacaoResponseDTO(
                 true,
-                aluno.getId(),
-                aluno.getNome(),
+                contexto.aluno.getId(),
+                contexto.aluno.getNome(),
                 viagem.getId(),
                 "Presenca confirmada com sucesso",
                 toResponse(confirmada)
@@ -167,6 +166,50 @@ public class PresencaService {
         );
     }
 
+    private Long extrairAlunoIdDoQrData(String qrData) {
+        Long alunoId = null;
+        if (qrData != null && qrData.matches("\\d+")) {
+            alunoId = Long.parseLong(qrData);
+        } else if (qrData != null && qrData.startsWith("GOCAMPUS-")) {
+            String[] parts = qrData.split("-");
+            if (parts.length >= 2) {
+                try {
+                    alunoId = Long.parseLong(parts[1]);
+                } catch (NumberFormatException e) {
+                    throw new BadRequestException("ID do aluno invalido no QR Code");
+                }
+            }
+        }
+
+        if (alunoId == null) {
+            throw new BadRequestException("Formatacao de QR Code invalida");
+        }
+
+        return alunoId;
+    }
+
+    private Viagem buscarViagemAtivaDoMotorista() {
+        Long motoristaId = authorizationService.currentUser().getId();
+        return viagemRepository.findByMotoristaId(motoristaId)
+                .stream()
+                .filter(v -> ViagemStatus.EM_ANDAMENTO.equals(v.getStatus()) || ViagemStatus.AGENDADA.equals(v.getStatus()))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("Nenhuma viagem ativa ou agendada encontrada para o motorista"));
+    }
+
+    private ReservaContexto buscarContextoReserva(Long alunoId, Viagem viagem) {
+        Aluno aluno = alunoRepository.findById(alunoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Aluno nao encontrado com id: " + alunoId));
+
+        PresencaDigital presenca = presencaRepository.findByAlunoIdAndViagemId(alunoId, viagem.getId())
+                .orElseThrow(() -> new BadRequestException("Aluno nao possui reserva de presenca para a viagem " + viagem.getId()));
+
+        return new ReservaContexto(aluno, presenca);
+    }
+
+    private record ReservaContexto(Aluno aluno, PresencaDigital presenca) {}
+
+    @Transactional(readOnly = true)
     public List<PresencaDigitalResponseDTO> listarPorViagem(Long viagemId) {
         return presencaRepository.findByViagemId(viagemId)
                 .stream()
@@ -174,6 +217,7 @@ public class PresencaService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<PresencaDigitalResponseDTO> listarPorAluno(Long alunoId) {
         return presencaRepository.findByAlunoId(alunoId)
                 .stream()
@@ -181,10 +225,12 @@ public class PresencaService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<PresencaDigitalResponseDTO> listarDoAlunoLogado() {
         return listarPorAluno(authorizationService.currentUser().getId());
     }
 
+    @Transactional(readOnly = true)
     public OcupacaoViagemResponseDTO ocupacaoDaViagem(Long viagemId) {
         Viagem viagem = viagemRepository.findById(viagemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Viagem nao encontrada com id: " + viagemId));
@@ -202,12 +248,14 @@ public class PresencaService {
         return new OcupacaoViagemResponseDTO(viagemId, capacidade, reservas, confirmados, percentual);
     }
 
+    @Transactional
     public void deletar(Long id) {
         PresencaDigital presenca = presencaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Presenca nao encontrada com id: " + id));
         presencaRepository.delete(presenca);
     }
 
+    @Transactional
     public PresencaDigitalResponseDTO confirmarPresencaById(Long id) {
         PresencaDigital presenca = presencaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Presenca nao encontrada com id: " + id));

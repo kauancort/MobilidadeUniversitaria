@@ -36,7 +36,7 @@
   </div>
 
   <div class="trips-list">
-    @for (trip of trips; track trip.id) {
+    @for (trip of filteredTrips; track trip.id) {
       <div class="trip-row">
         <!-- Left block: route name -->
         <div class="trip-main">
@@ -153,7 +153,7 @@
           <select [(ngModel)]="formData.motoristaId" required>
             <option value="">Selecione o motorista</option>
             @for (driver of drivers; track driver.id) {
-              <option [value]="driver.id">{{ driver.nome }}</option>
+              <option [value]="driver.id">{{ driver.name || driver.nome }}</option>
             }
           </select>
         </div>
@@ -162,7 +162,7 @@
           <select [(ngModel)]="formData.veiculoId" required>
             <option value="">Selecione o veículo</option>
             @for (vehicle of vehicles; track vehicle.id) {
-              <option [value]="vehicle.id">{{ vehicle.placa }} - {{ vehicle.modelo }}</option>
+              <option [value]="vehicle.id">{{ vehicle.plate || vehicle.placa }} - {{ vehicle.model || vehicle.modelo }}</option>
             }
           </select>
         </div>
@@ -206,7 +206,7 @@
           <select [(ngModel)]="formData.motoristaId" required>
             <option value="">Selecione o motorista</option>
             @for (driver of drivers; track driver.id) {
-              <option [value]="driver.id">{{ driver.nome }}</option>
+              <option [value]="driver.id">{{ driver.name || driver.nome }}</option>
             }
           </select>
         </div>
@@ -215,7 +215,7 @@
           <select [(ngModel)]="formData.veiculoId" required>
             <option value="">Selecione o veículo</option>
             @for (vehicle of vehicles; track vehicle.id) {
-              <option [value]="vehicle.id">{{ vehicle.placa }} - {{ vehicle.modelo }}</option>
+              <option [value]="vehicle.id">{{ vehicle.plate || vehicle.placa }} - {{ vehicle.model || vehicle.modelo }}</option>
             }
           </select>
         </div>

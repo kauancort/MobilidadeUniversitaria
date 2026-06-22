@@ -5,6 +5,19 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { QrCodeService } from '../services/qrcode.service';
 
+interface QrPreviewResponse {
+  valido: boolean;
+  alunoId: number;
+  alunoNome: string;
+  viagemId: number;
+  mensagem: string;
+  presenca?: {
+    status: string;
+    dataHoraReserva?: string;
+    dataHoraValidacao?: string | null;
+  };
+}
+
 @Component({
   selector: 'app-motorista-qr',
   standalone: true,
@@ -20,8 +33,9 @@ export class AppMotoristaQrComponent {
   qrInput = '';
   qrCodeImage = signal<string>('');
   expiresAt = signal<string>('');
-  resultado = signal<any>(null);
+  preview = signal<QrPreviewResponse | null>(null);
   isLoading = signal(false);
+  isConfirming = signal(false);
   erro = signal('');
   sucesso = signal('');
 
@@ -30,42 +44,63 @@ export class AppMotoristaQrComponent {
   validarQR() {
     const codigo = this.qrInput.trim();
     if (!codigo) {
-      this.erro.set('Insira o código QR do aluno.');
+      this.erro.set('Insira o código do aluno.');
       return;
     }
 
     this.isLoading.set(true);
     this.erro.set('');
     this.sucesso.set('');
-    this.resultado.set(null);
+    this.preview.set(null);
 
-    this.http.post<any>(`${this.baseUrl}/driver/qrcode/scan`, { qrData: codigo }).subscribe({
+    this.http.post<QrPreviewResponse>(this.baseUrl + '/driver/qrcode/preview', { qrData: codigo }).subscribe({
       next: (res) => {
-        this.resultado.set(res);
+        this.preview.set(res);
         this.isLoading.set(false);
-        if (res.valido) {
-          this.sucesso.set(`Embarque confirmado - ${res.alunoNome || 'Aluno'}`);
-          this.historico.update(h => [{
-            nome: res.alunoNome || 'Aluno',
-            hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            status: 'OK'
-          }, ...h.slice(0, 9)]);
-          this.qrInput = '';
-          setTimeout(() => this.sucesso.set(''), 4000);
-        } else {
-          this.erro.set(res.mensagem || 'QR Code inválido.');
-        }
       },
       error: (err: any) => {
         this.isLoading.set(false);
-        this.erro.set(err.error?.message || 'QR Code inválido ou expirado.');
+        this.erro.set(err.error?.message || 'Código inválido, expirado ou sem reserva para a viagem atual.');
+      }
+    });
+  }
+
+  confirmarPresenca() {
+    const codigo = this.qrInput.trim();
+    if (!codigo || !this.preview()) {
+      this.erro.set('Valide o código do aluno antes de confirmar.');
+      return;
+    }
+
+    this.isConfirming.set(true);
+    this.erro.set('');
+    this.sucesso.set('');
+
+    this.http.post<any>(this.baseUrl + '/driver/qrcode/scan', { qrData: codigo }).subscribe({
+      next: (res) => {
+        this.isConfirming.set(false);
+        const nome = res.alunoNome || this.preview()?.alunoNome || 'Aluno';
+        this.sucesso.set(`Presença confirmada - ${nome}`);
+        this.historico.update(h => [{
+          nome,
+          hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          status: 'OK'
+        }, ...h.slice(0, 9)]);
+        window.dispatchEvent(new CustomEvent('driver-presence-updated'));
+        this.preview.set(null);
+        this.qrInput = '';
+        setTimeout(() => this.sucesso.set(''), 4000);
+      },
+      error: (err: any) => {
+        this.isConfirming.set(false);
+        this.erro.set(err.error?.message || 'Não foi possível confirmar a presença.');
       }
     });
   }
 
   limpar() {
     this.qrInput = '';
-    this.resultado.set(null);
+    this.preview.set(null);
     this.erro.set('');
     this.sucesso.set('');
   }
@@ -74,7 +109,7 @@ export class AppMotoristaQrComponent {
     this.isLoading.set(true);
     this.erro.set('');
 
-    this.http.get<{qrData: string, expiresAt: string}>(`${this.baseUrl}/driver/trips/${tripId}/qrcode`).subscribe({
+    this.http.get<{qrData: string, expiresAt: string}>(this.baseUrl + '/driver/trips/' + tripId + '/qrcode').subscribe({
       next: async (res) => {
         try {
           const imageData = await this.qrCodeService.generateQrCode(res.qrData);

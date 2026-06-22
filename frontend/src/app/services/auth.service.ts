@@ -58,13 +58,15 @@ export class AuthService {
   private loadUserFromStorage(): void {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
-    if (token && user) {
-      try {
-        this.userSignal.set(JSON.parse(user));
-      } catch {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
+    if (!token || !user || this.isTokenExpired(token)) {
+      this.clearSession();
+      return;
+    }
+
+    try {
+      this.userSignal.set(JSON.parse(user));
+    } catch {
+      this.clearSession();
     }
   }
 
@@ -102,14 +104,40 @@ export class AuthService {
   }
 
   logout(): void {
+    this.clearSession();
+    this.router.navigate(['/login']);
+  }
+
+  hasValidSession(): boolean {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    return !!token && !!user && !this.isTokenExpired(token);
+  }
+
+  private clearSession(): void {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     this.userSignal.set(null);
-    this.router.navigate(['/login']);
   }
 
   getToken(): string | null {
     return localStorage.getItem('token');
+  }
+
+  private isTokenExpired(token: string): boolean {
+    try {
+      const payload = token.split('.')[1];
+      if (!payload) return true;
+
+      const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, '=');
+      const decoded = JSON.parse(atob(paddedPayload));
+      if (typeof decoded.exp !== 'number') return false;
+
+      return Date.now() >= decoded.exp * 1000;
+    } catch {
+      return true;
+    }
   }
 
   getRedirectPath(tipoUsuario: string): string {

@@ -1,7 +1,8 @@
-import { Component, OnInit, inject, signal, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectorRef, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DashboardService } from '../services/dashboard.service';
+import { DashboardSearchService } from '../services/dashboard-search.service';
 import { Route } from '../models/dashboard.model';
 import { Router } from '@angular/router';
 
@@ -15,6 +16,7 @@ import { Router } from '@angular/router';
 export class RoutesComponent implements OnInit {
   private svc = inject(DashboardService);
   private cdr = inject(ChangeDetectorRef);
+  private searchService = inject(DashboardSearchService);
   private router = inject(Router);
 
   routes: Route[] = [];
@@ -26,6 +28,10 @@ export class RoutesComponent implements OnInit {
   activeRoutes = 0;
   totalDistance = '';
   totalCapacity = 0;
+
+  private readonly searchSync = effect(() => {
+    this.applyFilters(this.searchService.query());
+  });
 
   // Modals
   showCreateModal = signal(false);
@@ -75,7 +81,7 @@ export class RoutesComponent implements OnInit {
     this.svc.getRoutes().subscribe({
       next: (data) => {
         this.routes = data;
-        this.filtered = data;
+        this.applyFilters(this.searchService.query());
         this.totalRoutes = data.length;
         this.activeRoutes = data.filter(r => r.status === 'Ativa').length;
         this.totalCapacity = data.reduce((acc, r) => acc + (r.capacity || 0), 0);
@@ -99,9 +105,11 @@ export class RoutesComponent implements OnInit {
     this.applyFilters();
   }
 
-  applyFilters() {
+  applyFilters(globalSearch = '') {
+    const searchTerm = `${this.search} ${globalSearch}`.trim().toLowerCase();
     this.filtered = this.routes.filter(r => {
-      const matchSearch = r.name.toLowerCase().includes(this.search.toLowerCase());
+      const matchSearch = !searchTerm || [r.name, r.description, r.originDest, ...(r.stops?.map(s => s.name) || [])]
+        .some(value => String(value ?? '').toLowerCase().includes(searchTerm));
       const matchStatus = this.filterStatus === 'Todas' || r.status === this.filterStatus;
       return matchSearch && matchStatus;
     });

@@ -23,6 +23,11 @@ export class AppMotoristaViagensComponent implements OnInit, OnDestroy {
   private baseUrl = environment.apiUrl;
   private refreshHandle?: ReturnType<typeof setInterval>;
   private presencaRefreshHandle?: ReturnType<typeof setInterval>;
+  private onDriverPresenceUpdated = () => {
+    if (this.showStudentsList() && this.selectedViagem()) {
+      this.carregarPresencas(this.selectedViagem()!.id);
+    }
+  };
 
   viagens = signal<any[]>([]);
   isLoading = signal(true);
@@ -32,9 +37,11 @@ export class AppMotoristaViagensComponent implements OnInit, OnDestroy {
   presencas = signal<Presenca[]>([]);
   showStudentsList = signal(false);
   isLoadingPresencas = signal(false);
+  filtroPresencas: 'todas' | 'reservadas' | 'confirmadas' = 'todas';
 
   ngOnInit() {
     this.carregarViagens();
+    window.addEventListener("driver-presence-updated", this.onDriverPresenceUpdated);
     // Poll trips every 15s
     this.refreshHandle = setInterval(() => this.carregarViagens(), 15000);
   }
@@ -42,6 +49,7 @@ export class AppMotoristaViagensComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     if (this.refreshHandle) clearInterval(this.refreshHandle);
     if (this.presencaRefreshHandle) clearInterval(this.presencaRefreshHandle);
+    window.removeEventListener("driver-presence-updated", this.onDriverPresenceUpdated);
   }
 
   carregarViagens() {
@@ -108,6 +116,7 @@ export class AppMotoristaViagensComponent implements OnInit, OnDestroy {
     this.erro.set('');
     this.selectedViagem.set(viagem);
     this.showStudentsList.set(true);
+    this.filtroPresencas = 'todas';
     this.carregarPresencas(viagem.id);
 
     // Poll student list every 10s while open
@@ -141,10 +150,32 @@ export class AppMotoristaViagensComponent implements OnInit, OnDestroy {
     });
   }
 
+  getPresencasFiltradas(): Presenca[] {
+    const lista = this.presencas();
+    switch (this.filtroPresencas) {
+      case 'reservadas':
+        return lista.filter(p => p.status !== 'CONFIRMADA');
+      case 'confirmadas':
+        return lista.filter(p => p.status === 'CONFIRMADA');
+      default:
+        return lista;
+    }
+  }
+
+  getResumoPresencas() {
+    const lista = this.presencas();
+    return {
+      total: lista.length,
+      reservadas: lista.filter(p => p.status !== 'CONFIRMADA').length,
+      confirmadas: lista.filter(p => p.status === 'CONFIRMADA').length
+    };
+  }
+
   fecharListaAlunos() {
     this.showStudentsList.set(false);
     this.selectedViagem.set(null);
     this.presencas.set([]);
+    this.filtroPresencas = 'todas';
     if (this.presencaRefreshHandle) {
       clearInterval(this.presencaRefreshHandle);
       this.presencaRefreshHandle = undefined;
@@ -160,6 +191,9 @@ export class AppMotoristaViagensComponent implements OnInit, OnDestroy {
             ? { ...p, confirmada: true, status: 'CONFIRMADA' }
             : p
         ));
+        if (this.selectedViagem()) {
+          this.carregarPresencas(this.selectedViagem()!.id);
+        }
       },
       error: (err: any) => {
         this.erro.set(err.error?.message || 'Erro ao confirmar presença.');

@@ -1,7 +1,8 @@
-import { Component, OnInit, inject, signal, ChangeDetectorRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectorRef, OnDestroy, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DashboardService } from '../services/dashboard.service';
+import { DashboardSearchService } from '../services/dashboard-search.service';
 import { User } from '../models/dashboard.model';
 import { Router, ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -35,6 +36,7 @@ interface StudentRequest {
 export class UsersComponent implements OnInit, OnDestroy {
   private svc = inject(DashboardService);
   private cdr = inject(ChangeDetectorRef);
+  private searchService = inject(DashboardSearchService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private http = inject(HttpClient);
@@ -75,6 +77,10 @@ export class UsersComponent implements OnInit, OnDestroy {
 
   isLoading = signal(false);
   errorMessage = signal('');
+
+  private readonly searchSync = effect(() => {
+    this.applyFilters(this.searchService.query());
+  });
 
   ngOnInit() {
     this.loadUsers();
@@ -155,7 +161,7 @@ export class UsersComponent implements OnInit, OnDestroy {
     this.svc.getUsers().subscribe({
       next: (data) => {
         this.users = data;
-        this.filtered = data;
+        this.applyFilters(this.searchService.query());
         this.totalUsers = data.length;
         this.totalAlunos = data.filter(u => u.type === 'aluno').length;
         this.totalMotoristas = data.filter(u => u.type === 'motorista').length;
@@ -212,12 +218,14 @@ export class UsersComponent implements OnInit, OnDestroy {
     this.applyFilters();
   }
 
-  applyFilters() {
+  applyFilters(globalSearch = '') {
+    const searchTerm = `${this.search} ${globalSearch}`.trim().toLowerCase();
     this.filtered = this.users.filter(u => {
       const matchSearch =
-        u.name.toLowerCase().includes(this.search.toLowerCase()) ||
-        u.email.toLowerCase().includes(this.search.toLowerCase()) ||
-        u.cpf.includes(this.search);
+        !searchTerm ||
+        u.name.toLowerCase().includes(searchTerm) ||
+        u.email.toLowerCase().includes(searchTerm) ||
+        u.cpf.includes(searchTerm);
       const matchType = this.filterType === 'todos' || u.type === this.filterType;
       const matchStatus = this.filterStatus === 'todos' || u.status === this.filterStatus;
       return matchSearch && matchType && matchStatus;

@@ -14,8 +14,8 @@
       <input
         type="date"
         id="startDate"
-        [(ngModel)]="startDate"
-        (change)="applyFilters()"
+        [ngModel]="startDate()"
+        (ngModelChange)="startDate.set($event); applyFilters()"
         class="filter-input"
       />
     </div>
@@ -25,8 +25,8 @@
       <input
         type="date"
         id="endDate"
-        [(ngModel)]="endDate"
-        (change)="applyFilters()"
+        [ngModel]="endDate()"
+        (ngModelChange)="endDate.set($event); applyFilters()"
         class="filter-input"
       />
     </div>
@@ -35,8 +35,8 @@
       <label for="routeSelect">Rota</label>
       <select
         id="routeSelect"
-        [(ngModel)]="selectedRouteId"
-        (change)="applyFilters()"
+        [ngModel]="selectedRouteId()"
+        (ngModelChange)="selectedRouteId.set($event); applyFilters()"
         class="filter-select"
       >
         <option value="todos">Todas as Rotas</option>

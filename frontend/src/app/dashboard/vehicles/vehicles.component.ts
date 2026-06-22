@@ -1,7 +1,8 @@
-import { Component, OnInit, inject, signal, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, inject, signal, ChangeDetectorRef, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DashboardService } from '../services/dashboard.service';
+import { DashboardSearchService } from '../services/dashboard-search.service';
 import { Vehicle } from '../models/dashboard.model';
 import { Router } from '@angular/router';
 
@@ -15,6 +16,7 @@ import { Router } from '@angular/router';
 export class VehiclesComponent implements OnInit {
   private svc = inject(DashboardService);
   private cdr = inject(ChangeDetectorRef);
+  private searchService = inject(DashboardSearchService);
   private router = inject(Router);
 
   // Modal signals
@@ -44,6 +46,10 @@ export class VehiclesComponent implements OnInit {
   maintenanceVehicles = 0;
   totalCapacity = 0;
 
+  private readonly searchSync = effect(() => {
+    this.applyFilters(this.searchService.query());
+  });
+
   ngOnInit() {
     this.loadVehicles();
 
@@ -61,7 +67,7 @@ export class VehiclesComponent implements OnInit {
     this.svc.getVehicles().subscribe({
       next: (data) => {
         this.vehicles = data;
-        this.filtered = data;
+        this.applyFilters(this.searchService.query());
         this.totalVehicles = data.length;
         this.activeVehicles = data.filter(v => v.status === 'ATIVO' || v.status === 'ativo').length;
         this.maintenanceVehicles = data.filter(v => v.status === 'MANUTENCAO' || v.status === 'manutencao').length;
@@ -84,7 +90,7 @@ export class VehiclesComponent implements OnInit {
     this.applyFilters();
   }
 
-  applyFilters() {
+  applyFilters(globalSearch = '') {
     const statusMap: Record<string, string[]> = {
       'Todos': [],
       'ativo': ['ATIVO', 'ativo'],
@@ -92,11 +98,13 @@ export class VehiclesComponent implements OnInit {
       'inativo': ['INATIVO', 'inativo']
     };
     const allowedStatuses = statusMap[this.filterStatus] || [];
+    const searchTerm = `${this.search} ${globalSearch}`.trim().toLowerCase();
 
     this.filtered = this.vehicles.filter(v => {
       const matchSearch =
-        v.plate.toLowerCase().includes(this.search.toLowerCase()) ||
-        v.model.toLowerCase().includes(this.search.toLowerCase());
+        !searchTerm ||
+        v.plate.toLowerCase().includes(searchTerm) ||
+        v.model.toLowerCase().includes(searchTerm);
       const matchStatus = this.filterStatus === 'Todos' || allowedStatuses.includes(v.status);
       return matchSearch && matchStatus;
     });
