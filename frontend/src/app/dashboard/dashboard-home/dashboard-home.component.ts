@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angular/core';
 import { DashboardService } from '../services/dashboard.service';
 import { Trip, DailyDemand, RouteOccupancy, DashboardSummary, StudentUsageRow } from '../models/dashboard.model';
 import { DataTableComponent } from '../data-table/data-table.component';
@@ -14,6 +14,7 @@ import { StudentUsageTableComponent } from '../student-usage-table/student-usage
 })
 export class DashboardHomeComponent implements OnInit, OnDestroy {
   private dashboardService = inject(DashboardService);
+  private cdr = inject(ChangeDetectorRef);
   private refreshHandle?: ReturnType<typeof setInterval>;
   private serviceRefreshSub?: any;
   private handleTripUpdate = () => {
@@ -59,6 +60,7 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
     this.dashboardService.getSummary().subscribe({
       next: (summary) => {
         this.summary = summary;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.summary = {
@@ -69,15 +71,31 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
           tripsToday: 0,
           completedTripsToday: 0
         };
+        this.cdr.detectChanges();
       }
     });
 
     this.dashboardService.getStudentUsageRows().subscribe({
-      next: (rows) => this.studentUsage = rows,
-      error: () => this.studentUsage = []
+      next: (rows) => {
+        this.studentUsage = rows;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.studentUsage = [];
+        this.cdr.detectChanges();
+      }
     });
 
-    this.dashboardService.getTrips().subscribe(data => this.trips = data);
+    this.dashboardService.getTrips().subscribe({
+      next: (data) => {
+        this.trips = data;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.trips = [];
+        this.cdr.detectChanges();
+      }
+    });
 
     this.dashboardService.getDailyDemand().subscribe({
       next: (data: any[]) => {
@@ -86,11 +104,13 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
           students: d.totalPresencas ?? d.students ?? 0
         }));
         this.calculateSvgChart();
+        this.cdr.detectChanges();
       },
       error: () => {
         this.dailyDemand = [];
         this.svgPoints = [];
         this.svgPath = '';
+        this.cdr.detectChanges();
       }
     });
 
@@ -101,10 +121,12 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
           occupancy: Number(r.ocupacaoPercent ?? r.occupancy ?? 0)
         }));
         this.updateAverageOccupancy();
+        this.cdr.detectChanges();
       },
       error: () => {
         this.routeOccupancy = [];
         this.updateAverageOccupancy();
+        this.cdr.detectChanges();
       }
     });
   }
