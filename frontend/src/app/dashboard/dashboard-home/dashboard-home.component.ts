@@ -1,7 +1,6 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angular/core';
 import { DashboardService } from '../services/dashboard.service';
-import { StatCard, Trip, DailyDemand, RouteOccupancy, DashboardSummary, StudentUsageRow } from '../models/dashboard.model';
-import { StatCardComponent } from '../stat-card/stat-card.component';
+import { Trip, DailyDemand, RouteOccupancy, DashboardSummary, StudentUsageRow } from '../models/dashboard.model';
 import { DataTableComponent } from '../data-table/data-table.component';
 import { DashboardKpisComponent } from '../dashboard-kpis/dashboard-kpis.component';
 import { StudentUsageTableComponent } from '../student-usage-table/student-usage-table.component';
@@ -9,21 +8,28 @@ import { StudentUsageTableComponent } from '../student-usage-table/student-usage
 @Component({
   selector: 'app-dashboard-home',
   standalone: true,
-  imports: [StatCardComponent, DataTableComponent, DashboardKpisComponent, StudentUsageTableComponent],
+  imports: [DataTableComponent, DashboardKpisComponent, StudentUsageTableComponent],
   templateUrl: './dashboard-home.component.html',
   styleUrl: './dashboard-home.component.css'
 })
 export class DashboardHomeComponent implements OnInit, OnDestroy {
   private dashboardService = inject(DashboardService);
+  private cdr = inject(ChangeDetectorRef);
   private refreshHandle?: ReturnType<typeof setInterval>;
   private serviceRefreshSub?: any;
   private handleTripUpdate = () => {
     this.loadDashboardData();
   };
 
-  summary: DashboardSummary | null = null;
+  summary: DashboardSummary = {
+    totalStudents: 0,
+    studentsGrowth: 0,
+    occupancyRate: 0,
+    occupancyGrowth: 0,
+    tripsToday: 0,
+    completedTripsToday: 0
+  };
   studentUsage: StudentUsageRow[] = [];
-  stats: StatCard[] = [];
   trips: Trip[] = [];
   dailyDemand: DailyDemand[] = [];
   routeOccupancy: RouteOccupancy[] = [];
@@ -54,33 +60,7 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
     this.dashboardService.getSummary().subscribe({
       next: (summary) => {
         this.summary = summary;
-        this.stats = [
-          {
-            title: 'Total de Alunos',
-            value: summary.totalStudents.toString(),
-            trend: `+${summary.studentsGrowth}%`,
-            trendDirection: summary.studentsGrowth >= 0 ? 'up' : 'down',
-            icon: 'users'
-          },
-          {
-            title: 'Taxa de Ocupação',
-            value: `${summary.occupancyRate.toFixed(0)}%`,
-            trend: `+${summary.occupancyGrowth}%`,
-            trendDirection: summary.occupancyGrowth >= 0 ? 'up' : 'down',
-            icon: 'percentage'
-          },
-          {
-            title: 'Viagens Hoje',
-            value: summary.tripsToday.toString(),
-            info: `${summary.completedTripsToday} finalizadas`,
-            icon: 'bus'
-          },
-          {
-            title: 'Economia Estimada',
-            value: 'R$ 0',
-            icon: 'wallet'
-          }
-        ];
+        this.cdr.detectChanges();
       },
       error: () => {
         this.summary = {
@@ -91,21 +71,31 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
           tripsToday: 0,
           completedTripsToday: 0
         };
-        this.stats = [
-          { title: 'Total de Alunos', value: '0', trend: '0%', trendDirection: 'neutral', icon: 'users' },
-          { title: 'Taxa de Ocupação', value: '0%', trend: '0%', trendDirection: 'neutral', icon: 'percentage' },
-          { title: 'Viagens Hoje', value: '0', info: '0 finalizadas', icon: 'bus' },
-          { title: 'Economia Estimada', value: 'R$ 0', icon: 'wallet' }
-        ];
+        this.cdr.detectChanges();
       }
     });
 
     this.dashboardService.getStudentUsageRows().subscribe({
-      next: (rows) => this.studentUsage = rows,
-      error: () => this.studentUsage = []
+      next: (rows) => {
+        this.studentUsage = rows;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.studentUsage = [];
+        this.cdr.detectChanges();
+      }
     });
 
-    this.dashboardService.getTrips().subscribe(data => this.trips = data);
+    this.dashboardService.getTrips().subscribe({
+      next: (data) => {
+        this.trips = data;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.trips = [];
+        this.cdr.detectChanges();
+      }
+    });
 
     this.dashboardService.getDailyDemand().subscribe({
       next: (data: any[]) => {
@@ -114,11 +104,13 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
           students: d.totalPresencas ?? d.students ?? 0
         }));
         this.calculateSvgChart();
+        this.cdr.detectChanges();
       },
       error: () => {
         this.dailyDemand = [];
         this.svgPoints = [];
         this.svgPath = '';
+        this.cdr.detectChanges();
       }
     });
 
@@ -126,13 +118,32 @@ export class DashboardHomeComponent implements OnInit, OnDestroy {
       next: (data: any[]) => {
         this.routeOccupancy = data.map(r => ({
           route: r.nomeRota ?? r.route ?? '',
-          occupancy: r.ocupacaoPercent ?? r.occupancy ?? 0
+          occupancy: Number(r.ocupacaoPercent ?? r.occupancy ?? 0)
         }));
+        this.updateAverageOccupancy();
+        this.cdr.detectChanges();
       },
       error: () => {
         this.routeOccupancy = [];
+        this.updateAverageOccupancy();
+        this.cdr.detectChanges();
       }
     });
+  }
+
+  private updateAverageOccupancy(): void {
+    const validRates = this.routeOccupancy
+      .map(route => Number(route.occupancy))
+      .filter(rate => Number.isFinite(rate));
+
+    const average = validRates.length
+      ? validRates.reduce((sum, rate) => sum + rate, 0) / validRates.length
+      : 0;
+
+    this.summary = {
+      ...this.summary,
+      occupancyRate: average
+    };
   }
 
   calculateSvgChart() {

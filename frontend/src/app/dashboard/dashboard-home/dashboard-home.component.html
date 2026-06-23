@@ -3,23 +3,9 @@
   <dashboard-kpis [summary]="summary"></dashboard-kpis>
 </section>
 
-<!-- Section 1: Stat Cards Grid -->
-<section class="stats-section">
-  @for (stat of stats; track stat.title) {
-    <app-stat-card
-      [title]="stat.title"
-      [value]="stat.value"
-      [trend]="stat.trend"
-      [trendDirection]="stat.trendDirection || 'neutral'"
-      [info]="stat.info"
-      [icon]="stat.icon">
-    </app-stat-card>
-  }
-</section>
-
-<!-- Section 2: Charts Section Grid -->
+<!-- Section 1: Charts Section Grid -->
 <section class="charts-section">
-  <div class="chart-card">
+  <div class="chart-card chart-card--demand">
     <div class="chart-card-header">
       <div>
         <h3 class="chart-title">Demanda por Dia</h3>
@@ -32,35 +18,49 @@
     </div>
 
     <div class="chart-container">
-      <svg class="line-chart-svg" viewBox="0 0 500 150" preserveAspectRatio="none">
-        <line x1="30" y1="20" x2="470" y2="20" stroke="#f1f5f9" stroke-width="1"></line>
-        <line x1="30" y1="52.5" x2="470" y2="52.5" stroke="#f1f5f9" stroke-width="1"></line>
-        <line x1="30" y1="85" x2="470" y2="85" stroke="#f1f5f9" stroke-width="1"></line>
-        <line x1="30" y1="117.5" x2="470" y2="117.5" stroke="#f1f5f9" stroke-width="1"></line>
-        <line x1="30" y1="130" x2="470" y2="130" stroke="#cbd5e1" stroke-width="1.5"></line>
+      <div class="chart-surface">
+        <svg class="line-chart-svg" viewBox="0 0 500 180" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.32"></stop>
+              <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.00"></stop>
+            </linearGradient>
+            <filter id="chart-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur>
+              <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.141 0 0 0 0 0.392 0 0 0 0 0.882 0 0 0 0.4 0"></feColorMatrix>
+              <feMerge>
+                <feMergeNode></feMergeNode>
+                <feMergeNode in="SourceGraphic"></feMergeNode>
+              </feMerge>
+            </filter>
+          </defs>
 
-        <defs>
-          <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#2563eb" stop-opacity="0.25"></stop>
-            <stop offset="100%" stop-color="#2563eb" stop-opacity="0.00"></stop>
-          </linearGradient>
-        </defs>
+          <line x1="28" y1="32" x2="472" y2="32" class="chart-grid-line"></line>
+          <line x1="28" y1="70" x2="472" y2="70" class="chart-grid-line"></line>
+          <line x1="28" y1="108" x2="472" y2="108" class="chart-grid-line"></line>
+          <line x1="28" y1="146" x2="472" y2="146" class="chart-grid-line chart-grid-line--baseline"></line>
 
-        <path [attr.d]="getFillPath()" fill="url(#chart-gradient)"></path>
-        <path [attr.d]="svgPath" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path [attr.d]="getFillPath()" fill="url(#chart-gradient)"></path>
+          <path [attr.d]="svgPath" fill="none" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#chart-glow)"></path>
 
-        @for (point of svgPoints; track point.day) {
-          <g>
-            <circle [attr.cx]="point.x" [attr.cy]="point.y" r="5" fill="#ffffff" stroke="#2563eb" stroke-width="2.5" class="chart-node"></circle>
-            <text [attr.x]="point.x" [attr.y]="point.y - 8" text-anchor="middle" class="chart-node-val">{{ point.value }}</text>
-          </g>
-        }
-      </svg>
+          @for (point of svgPoints; track point.day) {
+            <g>
+              <circle [attr.cx]="point.x" [attr.cy]="point.y" r="6" fill="#0f172a" stroke="#e2e8f0" stroke-width="2" class="chart-node"></circle>
+              <circle [attr.cx]="point.x" [attr.cy]="point.y" r="3" fill="#38bdf8"></circle>
+              <text [attr.x]="point.x" [attr.y]="point.y - 10" text-anchor="middle" class="chart-node-val">{{ point.value }}</text>
+            </g>
+          }
+        </svg>
 
-      <div class="x-axis-labels">
-        @for (point of svgPoints; track point.day) {
-          <span>{{ point.day }}</span>
-        }
+        <div class="x-axis-labels">
+          @for (point of svgPoints; track point.day) {
+            <span>{{ point.day }}</span>
+          }
+        </div>
+      </div>
+
+      <div class="chart-footnote">
+        Pico do período: <strong>{{ maxDemand }}</strong> estudantes
       </div>
     </div>
   </div>
