@@ -1,6 +1,6 @@
 package com.synapse.mobilidadeUniversitaria.Controllers;
 
-import com.synapse.mobilidadeUniversitaria.DTOs.TopDriverResponseDTO;
+import com.synapse.mobilidadeUniversitaria.dtos.TopDriverResponseDTO;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

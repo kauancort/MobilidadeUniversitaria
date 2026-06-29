@@ -1,6 +1,6 @@
 package com.synapse.mobilidadeUniversitaria.service;
 
-import com.synapse.mobilidadeUniversitaria.DTOs.DashboardKpiResponseDTO;
+import com.synapse.mobilidadeUniversitaria.dtos.DashboardKpiResponseDTO;
 import com.synapse.mobilidadeUniversitaria.Entities.Aluno;
 import com.synapse.mobilidadeUniversitaria.Entities.PresencaDigital;
 import com.synapse.mobilidadeUniversitaria.Entities.Usuario;

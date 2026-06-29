@@ -1,7 +1,7 @@
 package com.synapse.mobilidadeUniversitaria.Services;
 
 import com.synapse.mobilidadeUniversitaria.Entities.Documento;
-import com.synapse.mobilidadeUniversitaria.Repositories.DocumentRepository;
+import com.synapse.mobilidadeUniversitaria.repositories.DocumentRepository;
 import com.synapse.mobilidadeUniversitaria.security.AuthenticatedUser;
 import com.synapse.mobilidadeUniversitaria.security.AuthorizationService;
 import lombok.RequiredArgsConstructor;

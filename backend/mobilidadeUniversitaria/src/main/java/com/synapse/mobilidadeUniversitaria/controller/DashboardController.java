@@ -1,6 +1,6 @@
 package com.synapse.mobilidadeUniversitaria.controller;
 
-import com.synapse.mobilidadeUniversitaria.DTOs.DashboardKpiResponseDTO;
+import com.synapse.mobilidadeUniversitaria.dtos.DashboardKpiResponseDTO;
 import com.synapse.mobilidadeUniversitaria.dtos.response.AlunoFrequenciaResponseDTO;
 import com.synapse.mobilidadeUniversitaria.dtos.response.DashboardGestorResponseDTO;
 import com.synapse.mobilidadeUniversitaria.dtos.response.DemandaPorDiaResponseDTO;

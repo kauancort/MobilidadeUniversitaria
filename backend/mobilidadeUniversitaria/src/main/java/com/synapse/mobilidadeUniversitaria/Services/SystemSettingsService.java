@@ -1,7 +1,7 @@
 package com.synapse.mobilidadeUniversitaria.Services;
 
 import com.synapse.mobilidadeUniversitaria.Entities.SystemSettings;
-import com.synapse.mobilidadeUniversitaria.Repositories.SystemSettingsRepository;
+import com.synapse.mobilidadeUniversitaria.repositories.SystemSettingsRepository;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 

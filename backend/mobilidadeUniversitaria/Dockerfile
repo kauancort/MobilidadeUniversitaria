@@ -1,14 +1,18 @@
+FROM eclipse-temurin:21-jdk-alpine AS build
+WORKDIR /app
+
+COPY . .
+RUN chmod +x ./mvnw && ./mvnw clean package -DskipTests
+
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-RUN mkdir -p /app/data /app/uploads
+RUN mkdir -p /app/uploads
 
-COPY target/mobilidadeUniversitaria-0.0.1-SNAPSHOT.jar app.jar
+COPY --from=build /app/target/mobilidadeUniversitaria-0.0.1-SNAPSHOT.jar app.jar
 
 EXPOSE 8081
 
-ENV SPRING_DATASOURCE_URL=jdbc:h2:file:/app/data/gocampusdb
-ENV H2_CONSOLE_ENABLED=false
 ENV SERVER_PORT=8081
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

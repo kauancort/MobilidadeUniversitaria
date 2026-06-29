@@ -1,4 +1,4 @@
-package com.synapse.mobilidadeUniversitaria.DTOs;
+package com.synapse.mobilidadeUniversitaria.dtos;
 
 import lombok.Data;
 
